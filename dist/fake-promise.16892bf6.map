@@ -1,0 +1,1 @@
+{"version":3,"sources":["index.js"],"names":["console","log"],"mappings":";;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;AAAA;AACA;AACA;AACAA,QAAQC,GAAR,CAAY,aAAZ","file":"fake-promise.16892bf6.map","sourceRoot":"..","sourcesContent":["// class Promise{\n//   constructor()\n// }\nconsole.log(\"hello world\");\n"]}
