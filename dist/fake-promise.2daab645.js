@@ -103,51 +103,70 @@ parcelRequire = (function (modules, cache, entry, globalName) {
 
   // Override the current require with this new one
   return newRequire;
-})({9:[function(require,module,exports) {
+})({3:[function(require,module,exports) {
 "use strict";
 
 exports.__esModule = true;
+// 判断变量否为function
+var isFunction = function isFunction(variable) {
+    return typeof variable === "function";
+};
+// 定义Promise的三种状态常量
+var PENDING = "PENDING";
+var FULFILLED = "FULFILLED";
+var REJECTED = "REJECTED";
 var fakePromise = /** @class */function () {
-    function fakePromise(executor) {
-        var _this = this;
-        this.status = 'pending';
-        this.value = undefined;
-        this.reason = undefined;
-        this.resolve = function (value) {
-            if (_this.status === 'pending') {
-                // resolve调用后，status转化为成功态
-                _this.status = 'fulfilled';
-                // 储存成功的值
-                _this.value = value;
-            }
-        };
-        this.reject = function (reason) {
-            if (_this.status === 'pending') {
-                // reject调用后，status转化为失败态
-                _this.status = 'rejected';
-                // 储存失败的原因
-                _this.reason = reason;
-            }
-        };
-        this["catch"] = function () {};
-        this["finally"] = function () {};
-        this.then = function (onFulfilled, onRejected) {
-            // 状态为fulfilled，执行onFulfilled，传入成功的值
-            if (_this.status === 'fulfilled') {
-                onFulfilled(_this.value);
-            }
-            ;
-            // 状态为rejected，执行onRejected，传入失败的原因
-            if (_this.status === 'rejected') {
-                onRejected(_this.reason);
-            }
-            ;
-            return _this;
-        };
+    function fakePromise(handle) {
+        // 添加状态
+        this._status = PENDING;
+        this._value = undefined;
+        this._fulfilledQueues = [];
+        // 添加失败回调函数队列
+        this._rejectedQueues = [];
+        if (!isFunction(handle)) {
+            throw new Error("MyPromise must accept a function as a parameter");
+        }
+        // 执行handle
         try {
-            executor(this.resolve, this.reject);
-        } catch (error) {}
+            handle(this._resolve.bind(this), this._reject.bind(this));
+        } catch (err) {
+            this._reject(err);
+        }
     }
+    // 添加resovle时执行的函数
+    fakePromise.prototype._resolve = function (val) {
+        if (this._status !== PENDING) return;
+        this._status = FULFILLED;
+        this._value = val;
+    };
+    // 添加reject时执行的函数
+    fakePromise.prototype._reject = function (err) {
+        if (this._status !== PENDING) return;
+        this._status = REJECTED;
+        this._value = err;
+    };
+    // 添加then方法
+    fakePromise.prototype.then = function (onFulfilled, onRejected) {
+        var _a = this,
+            _value = _a._value,
+            _status = _a._status;
+        switch (_status) {
+            // 当状态为pending时，将then方法回调函数加入执行队列等待执行
+            case PENDING:
+                this._fulfilledQueues.push(onFulfilled);
+                this._rejectedQueues.push(onRejected);
+                break;
+            // 当状态已经改变时，立即执行对应的回调函数
+            case FULFILLED:
+                onFulfilled(_value);
+                break;
+            case REJECTED:
+                onRejected(_value);
+                break;
+        }
+        // 返回一个新的Promise对象
+        return new fakePromise(function (onFulfilledNext, onRejectedNext) {});
+    };
     return fakePromise;
 }();
 exports["default"] = fakePromise;
@@ -159,25 +178,45 @@ var __importDefault = this && this.__importDefault || function (mod) {
 };
 exports.__esModule = true;
 var fake_promise_1 = __importDefault(require("./fake-promise"));
-var window,
-    a = new fake_promise_1["default"](function (resolve, reject) {
-    if (true) {
+new fake_promise_1["default"](function (resolve, reject) {
+    setTimeout(function () {
+        resolve("FULFILLED");
+    }, 1000);
+});
+new fake_promise_1["default"](function (resolve, reject) {
+    setTimeout(function () {
+        resolve("FULFILLED");
+    }, 1000);
+});
+var promise1 = new fake_promise_1["default"](function (resolve, reject) {
+    setTimeout(function () {
+        resolve();
+    }, 1000);
+});
+var promise2 = promise1.then(function (res) {
+    // 返回一个普通值
+    return '这里返回一个普通值';
+});
+promise2.then(function (res) {
+    console.log(res); //1秒后打印出：这里返回一个普通值
+});
+var promise3 = new fake_promise_1["default"](function (resolve, reject) {
+    setTimeout(function () {
+        resolve();
+    }, 1000);
+});
+var promise4 = promise3.then(function (res) {
+    // 返回一个Promise对象
+    return new Promise(function (resolve, reject) {
         setTimeout(function () {
-            console.log(resolve);
-            resolve(1);
-        }, 1000);
-    } else {
-        reject(2);
-    }
+            resolve('这里返回一个Promise');
+        }, 2000);
+    });
 });
-a.then(function (value) {
-    console.log(value);
-    return value;
-}, function (error) {
-    console.log(error);
-    return error;
+promise2.then(function (res) {
+    console.log(res); //3秒后打印出：这里返回一个Promise
 });
-},{"./fake-promise":9}],3:[function(require,module,exports) {
+},{"./fake-promise":3}],6:[function(require,module,exports) {
 var global = arguments[3];
 var OVERLAY_ID = '__parcel__error__overlay__';
 
@@ -206,7 +245,7 @@ var parent = module.bundle.parent;
 if ((!parent || !parent.isParcelRequire) && typeof WebSocket !== 'undefined') {
   var hostname = '' || location.hostname;
   var protocol = location.protocol === 'https:' ? 'wss' : 'ws';
-  var ws = new WebSocket(protocol + '://' + hostname + ':' + '60936' + '/');
+  var ws = new WebSocket(protocol + '://' + hostname + ':' + '63487' + '/');
   ws.onmessage = function (event) {
     var data = JSON.parse(event.data);
 
@@ -347,5 +386,5 @@ function hmrAccept(bundle, id) {
     return hmrAccept(global.parcelRequire, id);
   });
 }
-},{}]},{},[3,7], null)
+},{}]},{},[6,7], null)
 //# sourceMappingURL=/fake-promise.2daab645.map

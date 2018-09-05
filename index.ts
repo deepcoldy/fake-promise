@@ -1,22 +1,46 @@
 import fakePromise from "./fake-promise";
 
-const 
+new fakePromise((resolve, reject) => {
+  setTimeout(() => {
+    resolve("FULFILLED");
+  }, 1000);
+});
 
-  window.a = new fakePromise((resolve, reject) => {
-    if (true) {
-      setTimeout(() => {
-        console.log(resolve)
-        resolve(1)
-      }, 1000);
-    } else {
-      reject(2)
-    }
+
+new fakePromise((resolve, reject) => {
+  setTimeout(() => {
+    resolve("FULFILLED");
+  }, 1000);
+});
+
+
+let promise1 = new fakePromise((resolve, reject) => {
+  setTimeout(() => {
+    resolve()
+  }, 1000)
+})
+let promise2 = promise1.then(res => {
+  // 返回一个普通值
+  return '这里返回一个普通值'
+})
+promise2.then(res => {
+  console.log(res) //1秒后打印出：这里返回一个普通值
+})
+
+
+let promise3 = new fakePromise((resolve, reject) => {
+  setTimeout(() => {
+    resolve();
+  }, 1000);
+});
+let promise4 = promise3.then(res => {
+  // 返回一个Promise对象
+  return new Promise((resolve, reject) => {
+    setTimeout(() => {
+      resolve('这里返回一个Promise')
+    }, 2000)
   })
-
-a.then((value) => {
-  console.log(value)
-  return value
-}, (error) => {
-  console.log(error)
-  return error
+})
+promise2.then(res => {
+  console.log(res) //3秒后打印出：这里返回一个Promise
 })
