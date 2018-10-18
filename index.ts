@@ -21,7 +21,7 @@ let promise1 = new fakePromise((resolve, reject) => {
 })
 let promise2 = promise1.then(res => {
   // 返回一个普通值
-  return '这里返回一个普通值'
+  return '这里返回一个普通值1'
 })
 promise2.then(res => {
   console.log(res) //1秒后打印出：这里返回一个普通值

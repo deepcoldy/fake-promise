@@ -109,22 +109,24 @@ parcelRequire = (function (modules, cache, entry, globalName) {
 exports.__esModule = true;
 // 判断变量否为function
 var isFunction = function isFunction(variable) {
-    return typeof variable === "function";
+    return typeof variable === 'function';
 };
 // 定义Promise的三种状态常量
-var PENDING = "PENDING";
-var FULFILLED = "FULFILLED";
-var REJECTED = "REJECTED";
-var fakePromise = /** @class */function () {
-    function fakePromise(handle) {
+var PENDING = 'PENDING';
+var FULFILLED = 'FULFILLED';
+var REJECTED = 'REJECTED';
+var MyPromise = /** @class */function () {
+    function MyPromise(handle) {
         // 添加状态
         this._status = PENDING;
+        // 添加状态
         this._value = undefined;
+        // 添加成功回调函数队列
         this._fulfilledQueues = [];
         // 添加失败回调函数队列
         this._rejectedQueues = [];
         if (!isFunction(handle)) {
-            throw new Error("MyPromise must accept a function as a parameter");
+            throw new Error('MyPromise must accept a function as a parameter');
         }
         // 执行handle
         try {
@@ -134,42 +136,202 @@ var fakePromise = /** @class */function () {
         }
     }
     // 添加resovle时执行的函数
-    fakePromise.prototype._resolve = function (val) {
-        if (this._status !== PENDING) return;
-        this._status = FULFILLED;
-        this._value = val;
+    MyPromise.prototype._resolve = function (val) {
+        var _this = this;
+        var run = function run() {
+            if (_this._status !== PENDING) return;
+            // 依次执行成功队列中的函数，并清空队列
+            var runFulfilled = function runFulfilled(value) {
+                var cb;
+                while (cb = _this._fulfilledQueues.shift()) {
+                    cb(value);
+                }
+            };
+            // 依次执行失败队列中的函数，并清空队列
+            var runRejected = function runRejected(error) {
+                var cb;
+                while (cb = _this._rejectedQueues.shift()) {
+                    cb(error);
+                }
+            };
+            /* 如果resolve的参数为Promise对象，则必须等待该Promise对象状态改变后,
+              当前Promsie的状态才会改变，且状态取决于参数Promsie对象的状态
+            */
+            if (val instanceof MyPromise) {
+                val.then(function (value) {
+                    _this._value = value;
+                    _this._status = FULFILLED;
+                    runFulfilled(value);
+                }, function (err) {
+                    _this._value = err;
+                    _this._status = REJECTED;
+                    runRejected(err);
+                });
+            } else {
+                _this._value = val;
+                _this._status = FULFILLED;
+                runFulfilled(val);
+            }
+        };
+        // 为了支持同步的Promise，这里采用异步调用
+        setTimeout(run, 0);
     };
     // 添加reject时执行的函数
-    fakePromise.prototype._reject = function (err) {
+    MyPromise.prototype._reject = function (err) {
+        var _this = this;
         if (this._status !== PENDING) return;
-        this._status = REJECTED;
-        this._value = err;
+        // 依次执行失败队列中的函数，并清空队列
+        var run = function run() {
+            _this._status = REJECTED;
+            _this._value = err;
+            var cb;
+            while (cb = _this._rejectedQueues.shift()) {
+                cb(err);
+            }
+        };
+        // 为了支持同步的Promise，这里采用异步调用
+        setTimeout(run, 0);
     };
     // 添加then方法
-    fakePromise.prototype.then = function (onFulfilled, onRejected) {
+    MyPromise.prototype.then = function (onFulfilled, onRejected) {
+        var _this = this;
         var _a = this,
             _value = _a._value,
             _status = _a._status;
-        switch (_status) {
-            // 当状态为pending时，将then方法回调函数加入执行队列等待执行
-            case PENDING:
-                this._fulfilledQueues.push(onFulfilled);
-                this._rejectedQueues.push(onRejected);
-                break;
-            // 当状态已经改变时，立即执行对应的回调函数
-            case FULFILLED:
-                onFulfilled(_value);
-                break;
-            case REJECTED:
-                onRejected(_value);
-                break;
-        }
         // 返回一个新的Promise对象
-        return new fakePromise(function (onFulfilledNext, onRejectedNext) {});
+        return new MyPromise(function (onFulfilledNext, onRejectedNext) {
+            // 封装一个成功时执行的函数
+            var fulfilled = function fulfilled(value) {
+                try {
+                    if (!isFunction(onFulfilled)) {
+                        onFulfilledNext(value);
+                    } else {
+                        var res = onFulfilled(value);
+                        if (res instanceof MyPromise) {
+                            // 如果当前回调函数返回MyPromise对象，必须等待其状态改变后在执行下一个回调
+                            res.then(onFulfilledNext, onRejectedNext);
+                        } else {
+                            //否则会将返回结果直接作为参数，传入下一个then的回调函数，并立即执行下一个then的回调函数
+                            onFulfilledNext(res);
+                        }
+                    }
+                } catch (err) {
+                    // 如果函数执行出错，新的Promise对象的状态为失败
+                    onRejectedNext(err);
+                }
+            };
+            // 封装一个失败时执行的函数
+            var rejected = function rejected(error) {
+                try {
+                    if (!isFunction(onRejected)) {
+                        onRejectedNext(error);
+                    } else {
+                        var res = onRejected(error);
+                        if (res instanceof MyPromise) {
+                            // 如果当前回调函数返回MyPromise对象，必须等待其状态改变后在执行下一个回调
+                            res.then(onFulfilledNext, onRejectedNext);
+                        } else {
+                            //否则会将返回结果直接作为参数，传入下一个then的回调函数，并立即执行下一个then的回调函数
+                            onFulfilledNext(res);
+                        }
+                    }
+                } catch (err) {
+                    // 如果函数执行出错，新的Promise对象的状态为失败
+                    onRejectedNext(err);
+                }
+            };
+            switch (_status) {
+                // 当状态为pending时，将then方法回调函数加入执行队列等待执行
+                case PENDING:
+                    _this._fulfilledQueues.push(fulfilled);
+                    _this._rejectedQueues.push(rejected);
+                    break;
+                // 当状态已经改变时，立即执行对应的回调函数
+                case FULFILLED:
+                    fulfilled(_value);
+                    break;
+                case REJECTED:
+                    rejected(_value);
+                    break;
+            }
+        });
     };
-    return fakePromise;
+    // 添加catch方法
+    MyPromise.prototype["catch"] = function (onRejected) {
+        return this.then(undefined, onRejected);
+    };
+    // 添加静态resolve方法
+    MyPromise.resolve = function (value) {
+        // 如果参数是MyPromise实例，直接返回这个实例
+        if (value instanceof MyPromise) return value;
+        return new MyPromise(function (resolve) {
+            return resolve(value);
+        });
+    };
+    // 添加静态reject方法
+    MyPromise.reject = function (value) {
+        return new MyPromise(function (resolve, reject) {
+            return reject(value);
+        });
+    };
+    // 添加静态all方法
+    MyPromise.all = function (list) {
+        var _this = this;
+        return new MyPromise(function (resolve, reject) {
+            /**
+             * 返回值的集合
+             */
+            var values = [];
+            var count = 0;
+            var _loop_1 = function _loop_1(i, p) {
+                // 数组参数如果不是MyPromise实例，先调用MyPromise.resolve
+                _this.resolve(p).then(function (res) {
+                    values[i] = res;
+                    count++;
+                    // 所有状态都变成fulfilled时返回的MyPromise状态就变成fulfilled
+                    if (count === list.length) resolve(values);
+                }, function (err) {
+                    // 有一个被rejected时返回的MyPromise状态就变成rejected
+                    reject(err);
+                });
+            };
+            for (var _i = 0, _a = list.entries(); _i < _a.length; _i++) {
+                var _b = _a[_i],
+                    i = _b[0],
+                    p = _b[1];
+                _loop_1(i, p);
+            }
+        });
+    };
+    // 添加静态race方法
+    MyPromise.race = function (list) {
+        var _this = this;
+        return new MyPromise(function (resolve, reject) {
+            for (var _i = 0, list_1 = list; _i < list_1.length; _i++) {
+                var p = list_1[_i];
+                // 只要有一个实例率先改变状态，新的MyPromise的状态就跟着改变
+                _this.resolve(p).then(function (res) {
+                    resolve(res);
+                }, function (err) {
+                    reject(err);
+                });
+            }
+        });
+    };
+    MyPromise.prototype["finally"] = function (cb) {
+        return this.then(function (value) {
+            return MyPromise.resolve(cb()).then(function () {
+                return value;
+            });
+        }, function (reason) {
+            return MyPromise.resolve(cb()).then(function () {
+                throw reason;
+            });
+        });
+    };
+    return MyPromise;
 }();
-exports["default"] = fakePromise;
+exports["default"] = MyPromise;
 },{}],7:[function(require,module,exports) {
 "use strict";
 
@@ -195,7 +357,7 @@ var promise1 = new fake_promise_1["default"](function (resolve, reject) {
 });
 var promise2 = promise1.then(function (res) {
     // 返回一个普通值
-    return '这里返回一个普通值';
+    return '这里返回一个普通值1';
 });
 promise2.then(function (res) {
     console.log(res); //1秒后打印出：这里返回一个普通值
@@ -216,7 +378,7 @@ var promise4 = promise3.then(function (res) {
 promise2.then(function (res) {
     console.log(res); //3秒后打印出：这里返回一个Promise
 });
-},{"./fake-promise":3}],6:[function(require,module,exports) {
+},{"./fake-promise":3}],4:[function(require,module,exports) {
 var global = arguments[3];
 var OVERLAY_ID = '__parcel__error__overlay__';
 
@@ -245,7 +407,7 @@ var parent = module.bundle.parent;
 if ((!parent || !parent.isParcelRequire) && typeof WebSocket !== 'undefined') {
   var hostname = '' || location.hostname;
   var protocol = location.protocol === 'https:' ? 'wss' : 'ws';
-  var ws = new WebSocket(protocol + '://' + hostname + ':' + '63487' + '/');
+  var ws = new WebSocket(protocol + '://' + hostname + ':' + '60306' + '/');
   ws.onmessage = function (event) {
     var data = JSON.parse(event.data);
 
@@ -386,5 +548,5 @@ function hmrAccept(bundle, id) {
     return hmrAccept(global.parcelRequire, id);
   });
 }
-},{}]},{},[6,7], null)
+},{}]},{},[4,7], null)
 //# sourceMappingURL=/fake-promise.2daab645.map
